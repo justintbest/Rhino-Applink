@@ -135,6 +135,7 @@ class ALineSenderDialog(forms.Form):
 
         self.txt_password = style_textbox(forms.PasswordBox())
         self.txt_password.Width = 340
+        self.txt_password.Height = self.txt_email.Height if self.txt_email.Height > 0 else 22
 
         self.txt_name = style_textbox(forms.TextBox())
         self.txt_name.PlaceholderText = "A-Line name"
@@ -160,11 +161,13 @@ class ALineSenderDialog(forms.Form):
         self.btn_send = style_button(forms.Button(), accent=True)
         self.btn_send.Text = "Send A-Line"
         self.btn_send.Width = 160
+        self.btn_send.Height = 30
         self.btn_send.Click += self.on_send
 
         self.btn_close = style_button(forms.Button())
         self.btn_close.Text = "Close"
         self.btn_close.Width = 100
+        self.btn_close.Height = 30
         self.btn_close.Click += self.on_close
 
         # ── Layout ──────────────────────────────────────────────────────────
