@@ -142,7 +142,7 @@ class ALineSenderDialog(forms.Form):
         self.txt_name.Width = 340
 
         self.chk_closed = forms.CheckBox()
-        self.chk_closed.Text = "Closed polyline"
+        self.chk_closed.Text = "Closed Polyline  ✓"
         self.chk_closed.Checked = True
         self.chk_closed.TextColor = COL_TEXT
 
