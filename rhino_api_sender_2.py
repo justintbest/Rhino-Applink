@@ -184,10 +184,8 @@ class ALineSenderDialog(forms.Form):
         layout.AddRow(make_label("A-Line Name"))
         layout.AddRow(self.txt_name)
         layout.AddRow(self.chk_closed)
-        layout.AddRow(None)
         layout.AddRow(self.btn_select)
         layout.AddRow(self.lbl_curve_status)
-        layout.AddRow(None)
         layout.AddRow(self.lbl_status)
 
         btn_row = forms.DynamicLayout()
