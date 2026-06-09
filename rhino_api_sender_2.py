@@ -250,7 +250,12 @@ class ALineSenderDialog(forms.Form):
 
 def main():
     dialog = ALineSenderDialog()
-    dialog.Owner = Rhino.UI.RhinoEtoApp.MainWindow
+    main_win = Rhino.UI.RhinoEtoApp.MainWindow
+    dialog.Owner = main_win
+    dialog.Location = drawing.Point(
+        main_win.Location.X + 60,
+        main_win.Location.Y + 60,
+    )
     dialog.Show()
 
 
