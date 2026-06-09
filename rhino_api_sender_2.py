@@ -188,11 +188,19 @@ class ALineSenderDialog(forms.Form):
         layout.AddRow(self.lbl_curve_status)
         layout.AddRow(self.lbl_status)
 
-        btn_row = forms.DynamicLayout()
+        btn_row = forms.TableLayout()
         btn_row.Spacing = drawing.Size(10, 0)
         btn_row.BackgroundColor = COL_BG
-        btn_row.AddRow(self.btn_send, self.btn_close)
-        layout.AddRow(btn_row)
+        btn_row.Rows.Add(forms.TableRow(
+            forms.TableCell(self.btn_send, False),
+            forms.TableCell(self.btn_close, False),
+        ))
+
+        btn_panel = forms.Panel()
+        btn_panel.BackgroundColor = COL_BG
+        btn_panel.Height = 32
+        btn_panel.Content = btn_row
+        layout.AddRow(btn_panel)
 
         self.Content = layout
 
