@@ -160,14 +160,14 @@ class ALineSenderDialog(forms.Form):
 
         self.btn_send = style_button(forms.Button(), accent=True)
         self.btn_send.Text = "Send A-Line"
-        self.btn_send.Width = 160
-        self.btn_send.Height = 30
+        self.btn_send.MinimumSize = drawing.Size(160, 30)
+        self.btn_send.Size = drawing.Size(160, 30)
         self.btn_send.Click += self.on_send
 
         self.btn_close = style_button(forms.Button())
         self.btn_close.Text = "Close"
-        self.btn_close.Width = 100
-        self.btn_close.Height = 30
+        self.btn_close.MinimumSize = drawing.Size(100, 30)
+        self.btn_close.Size = drawing.Size(100, 30)
         self.btn_close.Click += self.on_close
 
         # ── Layout ──────────────────────────────────────────────────────────
