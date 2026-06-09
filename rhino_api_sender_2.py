@@ -238,7 +238,7 @@ class ALineSenderDialog(forms.Dialog):
                 self.lbl_status.Text = msg
                 self.btn_send.Enabled = True
 
-            Rhino.RhinoApp.InvokeOnUiThread(update_ui)
+            Rhino.RhinoApp.InvokeOnUiThread(System.Action(update_ui))
 
         t = threading.Thread(target=do_send)
         t.daemon = True
