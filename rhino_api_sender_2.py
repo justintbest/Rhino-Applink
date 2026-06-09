@@ -54,6 +54,14 @@ def extract_2d_points(curve, is_closed):
     return pts, None
 
 
+def get_preview_points(curve):
+    """Return a list of (x, y, z) tuples for the preview, or None."""
+    ok, poly = curve.TryGetPolyline()
+    if not ok:
+        return None
+    return [(p.X, p.Y, p.Z) for p in poly]
+
+
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
 
 def post_json(url, data, token=None):
@@ -116,6 +124,77 @@ def style_button(btn, accent=False):
     return btn
 
 
+# ── Rotating preview ─────────────────────────────────────────────────────────
+
+class CurvePreview(forms.Drawable):
+    """Draws a slowly rotating wireframe preview of a polyline."""
+
+    def __init__(self, width=340, height=160):
+        self.Size = drawing.Size(width, height)
+        self.BackgroundColor = COL_SURFACE
+        self.points = None  # list of (x, y, z)
+        self.angle = 0.0
+        self.Paint += self.on_paint
+
+        self.timer = forms.UITimer()
+        self.timer.Interval = 0.03
+        self.timer.Elapsed += self.on_tick
+        self.timer.Start()
+
+    def set_points(self, points):
+        self.points = points
+        self.Invalidate()
+
+    def on_tick(self, sender, e):
+        if self.points:
+            self.angle += 0.02
+            self.Invalidate()
+
+    def on_paint(self, sender, e):
+        g = e.Graphics
+        w, h = self.Size.Width, self.Size.Height
+        g.FillRectangle(COL_SURFACE, drawing.RectangleF(0, 0, w, h))
+
+        if not self.points or len(self.points) < 2:
+            return
+
+        # Center the geometry around its bounding-box midpoint
+        xs = [p[0] for p in self.points]
+        ys = [p[1] for p in self.points]
+        zs = [p[2] for p in self.points]
+        cx = (max(xs) + min(xs)) / 2.0
+        cy = (max(ys) + min(ys)) / 2.0
+        cz = (max(zs) + min(zs)) / 2.0
+
+        import math
+        cos_a = math.cos(self.angle)
+        sin_a = math.sin(self.angle)
+
+        screen_pts = []
+        for x, y, z in self.points:
+            x0, y0, z0 = x - cx, y - cy, z - cz
+            # Rotate around the vertical (Y) axis
+            rx = x0 * cos_a + z0 * sin_a
+            ry = y0
+            screen_pts.append((rx, ry))
+
+        max_extent = max(max(abs(p[0]) for p in screen_pts),
+                          max(abs(p[1]) for p in screen_pts), 1e-6)
+        margin = 0.85
+        scale = (min(w, h) / 2.0) * margin / max_extent
+
+        poly = []
+        for rx, ry in screen_pts:
+            sx = w / 2.0 + rx * scale
+            sy = h / 2.0 - ry * scale
+            poly.append(drawing.PointF(sx, sy))
+
+        for i in range(len(poly) - 1):
+            g.DrawLine(COL_ACCENT, poly[i], poly[i + 1])
+        for p in poly:
+            g.FillEllipse(COL_ACCENT, p.X - 2, p.Y - 2, 4, 4)
+
+
 # ── Dialog ───────────────────────────────────────────────────────────────────
 
 class ALineSenderDialog(forms.Form):
@@ -152,6 +231,8 @@ class ALineSenderDialog(forms.Form):
         self.btn_select.Click += self.on_select_curve
 
         self.lbl_curve_status = make_label("No curve selected.", muted=True)
+
+        self.preview = CurvePreview(width=340, height=160)
 
         self.lbl_status = forms.Label()
         self.lbl_status.Text = ""
@@ -190,6 +271,7 @@ class ALineSenderDialog(forms.Form):
         layout.AddRow(chk_row)
         layout.AddRow(self.btn_select)
         layout.AddRow(self.lbl_curve_status)
+        layout.AddRow(self.preview)
         layout.AddRow(self.lbl_status)
 
         btn_row = forms.TableLayout()
@@ -219,9 +301,15 @@ class ALineSenderDialog(forms.Form):
             if ids:
                 self.selected_curve_ids = list(ids)
                 self.lbl_curve_status.Text = "{0} curve(s) selected.".format(len(ids))
+
+                obj = sc.doc.Objects.FindId(self.selected_curve_ids[0])
+                curve = coerce_curve(obj) if obj else None
+                preview_pts = get_preview_points(curve) if curve else None
+                self.preview.set_points(preview_pts)
             else:
                 self.selected_curve_ids = []
                 self.lbl_curve_status.Text = "No curve selected."
+                self.preview.set_points(None)
         finally:
             self.Visible = True
 
@@ -281,6 +369,7 @@ class ALineSenderDialog(forms.Form):
         t.start()
 
     def on_close(self, sender, e):
+        self.preview.timer.Stop()
         self.Close()
 
 
