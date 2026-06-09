@@ -93,7 +93,7 @@ def create_aline(token, name, is_closed, pts):
 
 # ── Dialog ───────────────────────────────────────────────────────────────────
 
-class ALineSenderDialog(forms.Dialog):
+class ALineSenderDialog(forms.Form):
 
     def __init__(self):
         self.selected_curve_ids = []
@@ -250,7 +250,8 @@ class ALineSenderDialog(forms.Dialog):
 
 def main():
     dialog = ALineSenderDialog()
-    dialog.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
+    dialog.Owner = Rhino.UI.RhinoEtoApp.MainWindow
+    dialog.Show()
 
 
 if __name__ == "__main__":
