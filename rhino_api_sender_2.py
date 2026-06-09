@@ -142,9 +142,9 @@ class ALineSenderDialog(forms.Form):
         self.txt_name.Width = 340
 
         self.chk_closed = forms.CheckBox()
-        self.chk_closed.Text = "Closed Polyline  ✓"
+        self.chk_closed.Text = ""
         self.chk_closed.Checked = True
-        self.chk_closed.TextColor = COL_TEXT
+        self.lbl_closed = make_label("Closed polyline")
 
         self.btn_select = style_button(forms.Button())
         self.btn_select.Text = "Select Curve in Rhino"
@@ -183,7 +183,11 @@ class ALineSenderDialog(forms.Form):
         layout.AddRow(self.txt_password)
         layout.AddRow(make_label("A-Line Name"))
         layout.AddRow(self.txt_name)
-        layout.AddRow(self.chk_closed)
+        chk_row = forms.DynamicLayout()
+        chk_row.BackgroundColor = COL_BG
+        chk_row.Spacing = drawing.Size(6, 0)
+        chk_row.AddRow(self.chk_closed, self.lbl_closed)
+        layout.AddRow(chk_row)
         layout.AddRow(self.btn_select)
         layout.AddRow(self.lbl_curve_status)
         layout.AddRow(self.lbl_status)
