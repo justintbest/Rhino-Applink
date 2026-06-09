@@ -98,7 +98,7 @@ class ALineSenderDialog(forms.Dialog):
     def __init__(self):
         self.selected_curve_ids = []
 
-        self.Title = "Send A-Line"
+        self.Title = "Seating Bowl Generator - Rhino Connector"
         self.Resizable = False
         self.ClientSize = drawing.Size(380, 420)
 
