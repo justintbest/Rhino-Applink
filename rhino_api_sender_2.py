@@ -125,7 +125,7 @@ class ALineSenderDialog(forms.Form):
 
         self.Title = "Seating Bowl Generator - Rhino Connector"
         self.Resizable = False
-        self.ClientSize = drawing.Size(380, 430)
+        self.AutoSize = True
         self.BackgroundColor = COL_BG
 
         # ── Fields ──────────────────────────────────────────────────────────
