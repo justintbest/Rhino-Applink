@@ -16,6 +16,13 @@ import System.Text
 
 BASE_URL = "https://bowl-backend-x0jz.onrender.com"
 
+# ── Theme ────────────────────────────────────────────────────────────────────
+COL_BG       = drawing.Color.FromArgb(26,  26,  26)   # #1A1A1A dark background
+COL_SURFACE  = drawing.Color.FromArgb(40,  40,  40)   # #282828 input fields
+COL_ACCENT   = drawing.Color.FromArgb(190,  0, 255)   # #BE00FF magenta
+COL_TEXT     = drawing.Color.FromArgb(255, 255, 255)   # white
+COL_MUTED    = drawing.Color.FromArgb(160, 160, 160)   # grey labels
+
 
 # ── Geometry helpers ─────────────────────────────────────────────────────────
 
@@ -31,14 +38,12 @@ def coerce_curve(obj):
 
 
 def extract_2d_points(curve, is_closed):
-    """Return a list of (x, y) tuples from a polyline curve."""
     ok, poly = curve.TryGetPolyline()
     if not ok:
         return None, "input is not a polyline — use a Polyline or convert with _Convert"
 
     pts = [(p.X, p.Y) for p in poly]
 
-    # Drop duplicate closing vertex
     if is_closed and len(pts) >= 2:
         if abs(pts[0][0] - pts[-1][0]) < 1e-6 and abs(pts[0][1] - pts[-1][1]) < 1e-6:
             pts = pts[:-1]
@@ -52,7 +57,6 @@ def extract_2d_points(curve, is_closed):
 # ── HTTP helpers ─────────────────────────────────────────────────────────────
 
 def post_json(url, data, token=None):
-    """POST JSON using System.Net.WebClient (works in all Rhino Python environments)."""
     try:
         client = System.Net.WebClient()
         client.Headers.Add("Content-Type", "application/json")
@@ -91,6 +95,27 @@ def create_aline(token, name, is_closed, pts):
     return post_json(BASE_URL + "/api/v1/alines", body, token=token)
 
 
+# ── UI helpers ───────────────────────────────────────────────────────────────
+
+def make_label(text, muted=False):
+    l = forms.Label()
+    l.Text = text
+    l.TextColor = COL_MUTED if muted else COL_TEXT
+    return l
+
+
+def style_textbox(tb):
+    tb.BackgroundColor = COL_SURFACE
+    tb.TextColor = COL_TEXT
+    return tb
+
+
+def style_button(btn, accent=False):
+    btn.BackgroundColor = COL_ACCENT if accent else COL_SURFACE
+    btn.TextColor = COL_TEXT
+    return btn
+
+
 # ── Dialog ───────────────────────────────────────────────────────────────────
 
 class ALineSenderDialog(forms.Form):
@@ -100,42 +125,44 @@ class ALineSenderDialog(forms.Form):
 
         self.Title = "Seating Bowl Generator - Rhino Connector"
         self.Resizable = False
-        self.ClientSize = drawing.Size(380, 420)
+        self.ClientSize = drawing.Size(380, 430)
+        self.BackgroundColor = COL_BG
 
         # ── Fields ──────────────────────────────────────────────────────────
-        self.txt_email = forms.TextBox()
+        self.txt_email = style_textbox(forms.TextBox())
         self.txt_email.PlaceholderText = "user@example.com"
         self.txt_email.Width = 340
 
-        self.txt_password = forms.PasswordBox()
+        self.txt_password = style_textbox(forms.PasswordBox())
         self.txt_password.Width = 340
 
-        self.txt_name = forms.TextBox()
+        self.txt_name = style_textbox(forms.TextBox())
         self.txt_name.PlaceholderText = "A-Line name"
         self.txt_name.Width = 340
 
         self.chk_closed = forms.CheckBox()
         self.chk_closed.Text = "Closed polyline"
         self.chk_closed.Checked = True
+        self.chk_closed.TextColor = COL_TEXT
 
-        self.btn_select = forms.Button()
+        self.btn_select = style_button(forms.Button())
         self.btn_select.Text = "Select Curve in Rhino"
-        self.btn_select.Width = 200
+        self.btn_select.Width = 220
         self.btn_select.Click += self.on_select_curve
 
-        self.lbl_curve_status = forms.Label()
-        self.lbl_curve_status.Text = "No curve selected."
+        self.lbl_curve_status = make_label("No curve selected.", muted=True)
 
         self.lbl_status = forms.Label()
         self.lbl_status.Text = ""
         self.lbl_status.Width = 340
+        self.lbl_status.TextColor = COL_ACCENT
 
-        self.btn_send = forms.Button()
+        self.btn_send = style_button(forms.Button(), accent=True)
         self.btn_send.Text = "Send A-Line"
         self.btn_send.Width = 160
         self.btn_send.Click += self.on_send
 
-        self.btn_close = forms.Button()
+        self.btn_close = style_button(forms.Button())
         self.btn_close.Text = "Close"
         self.btn_close.Width = 100
         self.btn_close.Click += self.on_close
@@ -145,17 +172,13 @@ class ALineSenderDialog(forms.Form):
         layout.Padding = drawing.Padding(20)
         layout.Spacing = drawing.Size(0, 10)
         layout.DefaultSpacing = drawing.Size(6, 6)
+        layout.BackgroundColor = COL_BG
 
-        def lbl(text):
-            l = forms.Label()
-            l.Text = text
-            return l
-
-        layout.AddRow(lbl("Email"))
+        layout.AddRow(make_label("Email"))
         layout.AddRow(self.txt_email)
-        layout.AddRow(lbl("Password"))
+        layout.AddRow(make_label("Password"))
         layout.AddRow(self.txt_password)
-        layout.AddRow(lbl("A-Line Name"))
+        layout.AddRow(make_label("A-Line Name"))
         layout.AddRow(self.txt_name)
         layout.AddRow(self.chk_closed)
         layout.AddRow(None)
@@ -166,6 +189,7 @@ class ALineSenderDialog(forms.Form):
 
         btn_row = forms.DynamicLayout()
         btn_row.Spacing = drawing.Size(10, 0)
+        btn_row.BackgroundColor = COL_BG
         btn_row.AddRow(self.btn_send, self.btn_close)
         layout.AddRow(btn_row)
 
@@ -189,9 +213,9 @@ class ALineSenderDialog(forms.Form):
             self.Visible = True
 
     def on_send(self, sender, e):
-        email    = self.txt_email.Text.strip()
-        password = self.txt_password.Text
-        name     = self.txt_name.Text.strip()
+        email     = self.txt_email.Text.strip()
+        password  = self.txt_password.Text
+        name      = self.txt_name.Text.strip()
         is_closed = bool(self.chk_closed.Checked)
 
         if not email or not password:
@@ -204,7 +228,6 @@ class ALineSenderDialog(forms.Form):
             self.lbl_status.Text = "No curve selected."
             return
 
-        # Use only the first selected curve
         obj = sc.doc.Objects.FindId(self.selected_curve_ids[0])
         curve = coerce_curve(obj) if obj else None
         if curve is None:
