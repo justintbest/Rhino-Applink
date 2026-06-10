@@ -200,7 +200,7 @@ class CurvePreview(forms.Drawable):
             sy = (rx + ry) * iso_sin - rz
             screen_pts.append((sx, sy))
 
-        margin = 0.85
+        margin = 1.5
         scale = (min(w, h) / 2.0) * margin / self.fixed_extent
 
         poly = []
