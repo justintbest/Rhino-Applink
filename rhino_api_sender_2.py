@@ -129,8 +129,8 @@ def style_button(btn, accent=False):
 class CurvePreview(forms.Drawable):
     """Draws a slowly rotating wireframe preview of a polyline."""
 
-    def __init__(self, width=340, height=160):
-        self.Size = drawing.Size(width, height)
+    def __init__(self):
+        self.Size = drawing.Size(340, 160)
         self.BackgroundColor = COL_SURFACE
         self.points = None  # list of (x, y, z)
         self.angle = 0.0
@@ -232,7 +232,7 @@ class ALineSenderDialog(forms.Form):
 
         self.lbl_curve_status = make_label("No curve selected.", muted=True)
 
-        self.preview = CurvePreview(width=340, height=160)
+        self.preview = CurvePreview()
 
         self.lbl_status = forms.Label()
         self.lbl_status.Text = ""
