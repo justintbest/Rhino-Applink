@@ -37,12 +37,9 @@ def coerce_curve(obj):
     return None
 
 
-def extract_2d_points(curve, is_closed):
-    ok, poly = curve.TryGetPolyline()
-    if not ok:
-        return None, "input is not a polyline — use a Polyline or convert with _Convert"
-
-    pts = [(p.X, p.Y) for p in poly]
+def extract_2d_points(raw_pts, is_closed):
+    """raw_pts: list of (x, y[, z]) tuples. Returns (points, error)."""
+    pts = [(p[0], p[1]) for p in raw_pts]
 
     if is_closed and len(pts) >= 2:
         if abs(pts[0][0] - pts[-1][0]) < 1e-6 and abs(pts[0][1] - pts[-1][1]) < 1e-6:
@@ -221,6 +218,7 @@ class ALineSenderDialog(forms.Form):
 
     def __init__(self):
         self.selected_curve_ids = []
+        self.captured_pts = None  # snapshot of (x, y, z) points at time of selection
 
         self.Title = "Seating Bowl Generator - Rhino Connector"
         self.Resizable = False
@@ -325,9 +323,11 @@ class ALineSenderDialog(forms.Form):
                 obj = sc.doc.Objects.FindId(self.selected_curve_ids[0])
                 curve = coerce_curve(obj) if obj else None
                 preview_pts = get_preview_points(curve) if curve else None
+                self.captured_pts = preview_pts
                 self.preview.set_points(preview_pts)
             else:
                 self.selected_curve_ids = []
+                self.captured_pts = None
                 self.lbl_curve_status.Text = "No curve selected."
                 self.preview.set_points(None)
         finally:
@@ -345,17 +345,11 @@ class ALineSenderDialog(forms.Form):
         if not name:
             self.lbl_status.Text = "Please enter an A-Line name."
             return
-        if not self.selected_curve_ids:
+        if not self.captured_pts:
             self.lbl_status.Text = "No curve selected."
             return
 
-        obj = sc.doc.Objects.FindId(self.selected_curve_ids[0])
-        curve = coerce_curve(obj) if obj else None
-        if curve is None:
-            self.lbl_status.Text = "Selected object is not a valid curve."
-            return
-
-        pts, err = extract_2d_points(curve, is_closed)
+        pts, err = extract_2d_points(self.captured_pts, is_closed)
         if err:
             self.lbl_status.Text = err
             return
