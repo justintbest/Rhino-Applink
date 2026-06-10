@@ -143,6 +143,20 @@ class CurvePreview(forms.Drawable):
 
     def set_points(self, points):
         self.points = points
+        self.fixed_extent = None
+        if points:
+            xs = [p[0] for p in points]
+            ys = [p[1] for p in points]
+            zs = [p[2] for p in points]
+            cx = (max(xs) + min(xs)) / 2.0
+            cy = (max(ys) + min(ys)) / 2.0
+            cz = (max(zs) + min(zs)) / 2.0
+            # XY radius (rotation-invariant) plus z half-height
+            radius = max(((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 for x, y, z in points)
+            half_z = (max(zs) - min(zs)) / 2.0
+            iso_cos = 0.8660254037844387  # cos(30deg)
+            iso_sin = 0.5                 # sin(30deg)
+            self.fixed_extent = max(2 * radius * iso_cos, 2 * radius * iso_sin + half_z, 1e-6)
         self.Invalidate()
 
     def on_tick(self, sender, e):
@@ -186,10 +200,8 @@ class CurvePreview(forms.Drawable):
             sy = (rx + ry) * iso_sin - rz
             screen_pts.append((sx, sy))
 
-        max_extent = max(max(abs(p[0]) for p in screen_pts),
-                          max(abs(p[1]) for p in screen_pts), 1e-6)
         margin = 0.85
-        scale = (min(w, h) / 2.0) * margin / max_extent
+        scale = (min(w, h) / 2.0) * margin / self.fixed_extent
 
         poly = []
         for rx, ry in screen_pts:
