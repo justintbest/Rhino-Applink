@@ -170,13 +170,21 @@ class CurvePreview(forms.Drawable):
         cos_a = math.cos(self.angle)
         sin_a = math.sin(self.angle)
 
+        # Isometric projection angles
+        iso_cos = math.cos(math.radians(30))
+        iso_sin = math.sin(math.radians(30))
+
         screen_pts = []
         for x, y, z in self.points:
             x0, y0, z0 = x - cx, y - cy, z - cz
-            # Rotate around the vertical (Y) axis
-            rx = x0 * cos_a + z0 * sin_a
-            ry = y0
-            screen_pts.append((rx, ry))
+            # Rotate around the vertical (Z) axis
+            rx = x0 * cos_a - y0 * sin_a
+            ry = x0 * sin_a + y0 * cos_a
+            rz = z0
+            # Isometric projection
+            sx = (rx - ry) * iso_cos
+            sy = (rx + ry) * iso_sin - rz
+            screen_pts.append((sx, sy))
 
         max_extent = max(max(abs(p[0]) for p in screen_pts),
                           max(abs(p[1]) for p in screen_pts), 1e-6)
