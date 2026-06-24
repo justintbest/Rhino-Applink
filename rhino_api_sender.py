@@ -359,7 +359,7 @@ class ALineSenderDialog(forms.Form):
         self.cmb_designs.Width = 340
 
         self.btn_load_design = style_button(forms.Button(), color=COL_BLUE)
-        self.btn_load_design.Text = "Load Bowl into Rhino"
+        self.btn_load_design.Text = "Load Bowl"
         self.btn_load_design.MinimumSize = drawing.Size(220, 30)
         self.btn_load_design.Click += self.on_load_design
 
