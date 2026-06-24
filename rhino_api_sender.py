@@ -20,6 +20,7 @@ BASE_URL = "https://bowl-backend-x0jz.onrender.com"
 COL_BG       = drawing.Color.FromArgb(26,  26,  26)   # #1A1A1A dark background
 COL_SURFACE  = drawing.Color.FromArgb(40,  40,  40)   # #282828 input fields
 COL_ACCENT   = drawing.Color.FromArgb(190,  0, 255)   # #BE00FF magenta
+COL_BLUE     = drawing.Color.FromArgb( 33, 150, 243)   # #2196F3 blue
 COL_TEXT     = drawing.Color.FromArgb(255, 255, 255)   # white
 COL_MUTED    = drawing.Color.FromArgb(160, 160, 160)   # grey labels
 
@@ -182,8 +183,8 @@ def style_textbox(tb):
     return tb
 
 
-def style_button(btn, accent=False):
-    btn.BackgroundColor = COL_ACCENT if accent else COL_SURFACE
+def style_button(btn, accent=False, color=None):
+    btn.BackgroundColor = color if color else (COL_ACCENT if accent else COL_SURFACE)
     btn.TextColor = COL_TEXT
     return btn
 
@@ -357,8 +358,8 @@ class ALineSenderDialog(forms.Form):
         self.cmb_designs = forms.ComboBox()
         self.cmb_designs.Width = 340
 
-        self.btn_load_design = style_button(forms.Button(), accent=True)
-        self.btn_load_design.Text = "Load Design into Rhino"
+        self.btn_load_design = style_button(forms.Button(), color=COL_BLUE)
+        self.btn_load_design.Text = "Load Bowl into Rhino"
         self.btn_load_design.MinimumSize = drawing.Size(220, 30)
         self.btn_load_design.Click += self.on_load_design
 
