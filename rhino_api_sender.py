@@ -83,6 +83,26 @@ def post_json(url, data, token=None):
         raise RuntimeError(str(e))
 
 
+def get_json(url, token=None):
+    try:
+        client = System.Net.WebClient()
+        client.Headers.Add("Accept", "application/json")
+        if token:
+            client.Headers.Add("Authorization", "Bearer " + token)
+        response = client.DownloadString(url)
+        return json.loads(response)
+    except System.Net.WebException as e:
+        resp = e.Response
+        detail = ""
+        if resp:
+            stream = resp.GetResponseStream()
+            reader = System.IO.StreamReader(stream)
+            detail = reader.ReadToEnd()
+        raise RuntimeError("HTTP error: {0} — {1}".format(str(e.Message), detail[:300]))
+    except Exception as e:
+        raise RuntimeError(str(e))
+
+
 def login(email, password):
     resp = post_json(BASE_URL + "/api/v1/auth/login", {"email": email, "password": password})
     token = resp.get("token")
@@ -98,6 +118,51 @@ def create_aline(token, name, is_closed, pts):
         "points": [{"x": x, "y": y} for x, y in pts],
     }
     return post_json(BASE_URL + "/api/v1/alines", body, token=token)
+
+
+def list_designs(token):
+    return get_json(BASE_URL + "/api/v1/designs", token=token)
+
+
+def get_design(token, design_id):
+    return get_json(BASE_URL + "/api/v1/designs/{0}".format(design_id), token=token)
+
+
+# Placeholder assumption: each tier carries a flat "points" array of
+# {x, y[, z]} dicts and an optional numeric "elevation" applied to all
+# points lacking their own z. Adjust once the real backend schema is known.
+def tier_to_points(tier, fallback_elevation=0.0):
+    raw_pts = tier.get("points") or []
+    elevation = tier.get("elevation", fallback_elevation)
+    pts = []
+    for p in raw_pts:
+        x = p.get("x")
+        y = p.get("y")
+        if x is None or y is None:
+            continue
+        z = p.get("z", elevation)
+        pts.append(rg.Point3d(x, y, z))
+    return pts
+
+
+def design_to_curves(design):
+    """Best-effort: turn a design's sections/tiers into Rhino curves.
+
+    Returns (curves, warnings) — warnings lists tiers that didn't match
+    the assumed {points: [{x,y[,z]}], elevation} shape so they can be
+    inspected once the real schema is confirmed.
+    """
+    curves = []
+    warnings = []
+    for section in design.get("sections", []):
+        sec_name = section.get("name", "section")
+        for i, tier in enumerate(section.get("tiers", [])):
+            pts = tier_to_points(tier)
+            if len(pts) < 2:
+                warnings.append("{0} tier {1}: no usable points".format(sec_name, i))
+                continue
+            curves.append(rg.PolylineCurve(pts))
+    return curves, warnings
 
 
 # ── UI helpers ───────────────────────────────────────────────────────────────
@@ -279,6 +344,24 @@ class ALineSenderDialog(forms.Form):
         self.btn_close.Size = drawing.Size(100, 30)
         self.btn_close.Click += self.on_close
 
+        # ── Retrieve design ─────────────────────────────────────────────────
+        self.designs = []  # cached list from last "Fetch Designs"
+
+        self.btn_fetch_designs = style_button(forms.Button())
+        self.btn_fetch_designs.Text = "Fetch Designs"
+        self.btn_fetch_designs.Width = 220
+        self.btn_fetch_designs.Click += self.on_fetch_designs
+
+        self.cmb_designs = forms.ComboBox()
+        self.cmb_designs.Width = 340
+
+        self.btn_load_design = style_button(forms.Button(), accent=True)
+        self.btn_load_design.Text = "Load Design into Rhino"
+        self.btn_load_design.MinimumSize = drawing.Size(220, 30)
+        self.btn_load_design.Click += self.on_load_design
+
+        self.lbl_design_status = make_label("", muted=True)
+
         # ── Layout ──────────────────────────────────────────────────────────
         layout = forms.DynamicLayout()
         layout.Padding = drawing.Padding(20)
@@ -315,6 +398,12 @@ class ALineSenderDialog(forms.Form):
         btn_panel.Height = 32
         btn_panel.Content = btn_row
         layout.AddRow(btn_panel)
+
+        layout.AddRow(make_label("Retrieve Design"))
+        layout.AddRow(self.btn_fetch_designs)
+        layout.AddRow(self.cmb_designs)
+        layout.AddRow(self.btn_load_design)
+        layout.AddRow(self.lbl_design_status)
 
         self.Content = layout
 
@@ -399,6 +488,83 @@ class ALineSenderDialog(forms.Form):
             Rhino.RhinoApp.InvokeOnUiThread(System.Action(update_ui))
 
         t = threading.Thread(target=do_send)
+        t.daemon = True
+        t.start()
+
+    def on_fetch_designs(self, sender, e):
+        email    = self.txt_email.Text.strip()
+        password = self.txt_password.Text
+
+        if not email or not password:
+            self.lbl_design_status.Text = "Email and password are required."
+            return
+
+        self.lbl_design_status.Text = "Fetching designs..."
+        self.btn_fetch_designs.Enabled = False
+
+        def do_fetch():
+            try:
+                token = login(email, password)
+                designs = list_designs(token)
+                msg = "{0} design(s) found.".format(len(designs))
+            except RuntimeError as ex:
+                designs = []
+                msg = "Error: " + str(ex)
+
+            def update_ui():
+                self.designs = designs
+                self.cmb_designs.Items.Clear()
+                for d in designs:
+                    self.cmb_designs.Items.Add(d.get("name", d.get("id", "unnamed")))
+                if designs:
+                    self.cmb_designs.SelectedIndex = 0
+                self.lbl_design_status.Text = msg
+                self.btn_fetch_designs.Enabled = True
+
+            Rhino.RhinoApp.InvokeOnUiThread(System.Action(update_ui))
+
+        t = threading.Thread(target=do_fetch)
+        t.daemon = True
+        t.start()
+
+    def on_load_design(self, sender, e):
+        email    = self.txt_email.Text.strip()
+        password = self.txt_password.Text
+        index    = self.cmb_designs.SelectedIndex
+
+        if not email or not password:
+            self.lbl_design_status.Text = "Email and password are required."
+            return
+        if index < 0 or index >= len(self.designs):
+            self.lbl_design_status.Text = "Fetch designs and pick one first."
+            return
+
+        design_id = self.designs[index].get("id")
+        self.lbl_design_status.Text = "Loading design..."
+        self.btn_load_design.Enabled = False
+
+        def do_load():
+            try:
+                token = login(email, password)
+                design = get_design(token, design_id)
+                curves, warnings = design_to_curves(design)
+                msg = "Loaded {0} curve(s).".format(len(curves))
+                if warnings:
+                    msg += " {0} tier(s) skipped (unrecognized shape).".format(len(warnings))
+            except RuntimeError as ex:
+                curves, warnings = [], []
+                msg = "Error: " + str(ex)
+
+            def update_ui():
+                for c in curves:
+                    sc.doc.Objects.AddCurve(c)
+                sc.doc.Views.Redraw()
+                self.lbl_design_status.Text = msg
+                self.btn_load_design.Enabled = True
+
+            Rhino.RhinoApp.InvokeOnUiThread(System.Action(update_ui))
+
+        t = threading.Thread(target=do_load)
         t.daemon = True
         t.start()
 
