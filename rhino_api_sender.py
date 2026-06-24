@@ -348,7 +348,7 @@ class ALineSenderDialog(forms.Form):
         self.designs = []  # cached list from last "Fetch Designs"
 
         self.btn_fetch_designs = style_button(forms.Button())
-        self.btn_fetch_designs.Text = "Fetch Designs"
+        self.btn_fetch_designs.Text = "Fetch Bowls"
         self.btn_fetch_designs.Width = 220
         self.btn_fetch_designs.Click += self.on_fetch_designs
 
