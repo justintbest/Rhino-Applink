@@ -547,6 +547,7 @@ class ALineSenderDialog(forms.Form):
             try:
                 token = login(email, password)
                 design = get_design(token, design_id)
+                Rhino.RhinoApp.WriteLine("Raw design JSON: " + json.dumps(design))
                 curves, warnings = design_to_curves(design)
                 msg = "Loaded {0} curve(s).".format(len(curves))
                 if warnings:
