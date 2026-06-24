@@ -128,41 +128,43 @@ def get_design(token, design_id):
     return get_json(BASE_URL + "/api/v1/designs/{0}".format(design_id), token=token)
 
 
-# Placeholder assumption: each tier carries a flat "points" array of
-# {x, y[, z]} dicts and an optional numeric "elevation" applied to all
-# points lacking their own z. Adjust once the real backend schema is known.
-def tier_to_points(tier, fallback_elevation=0.0):
-    raw_pts = tier.get("points") or []
-    elevation = tier.get("elevation", fallback_elevation)
-    pts = []
-    for p in raw_pts:
-        x = p.get("x")
-        y = p.get("y")
-        if x is None or y is None:
-            continue
-        z = p.get("z", elevation)
-        pts.append(rg.Point3d(x, y, z))
-    return pts
+# Placeholder: a tier is currently a set of C-value sightline *parameters*
+# (seatWidth, riserPattern, xAR1, zR1, zLast, steps, ...), not geometry —
+# the actual row/seat profile is computed elsewhere. Until that computed
+# geometry is exposed via the API, stand in a simple box per tier sized
+# from whatever numeric params are present, laid out side by side so each
+# tier/section is visually distinct.
+def tier_to_placeholder_brep(tier, x_offset, y_offset):
+    width  = float(tier.get("seatWidth", 24.0))
+    depth  = float(tier.get("steps", 10)) * 12.0
+    z0     = float(tier.get("zR1", 0.0))
+    z1     = float(tier.get("zLast", z0 + 1200.0))
+    height = max(z1 - z0, 1.0)
+
+    box = rg.Box(
+        rg.Plane.WorldXY,
+        rg.Interval(x_offset, x_offset + width),
+        rg.Interval(y_offset, y_offset + depth),
+        rg.Interval(z0, z0 + height),
+    )
+    return box.ToBrep()
 
 
-def design_to_curves(design):
-    """Best-effort: turn a design's sections/tiers into Rhino curves.
+def design_to_geometry(design):
+    """Build one placeholder box per tier from its raw parameters.
 
-    Returns (curves, warnings) — warnings lists tiers that didn't match
-    the assumed {points: [{x,y[,z]}], elevation} shape so they can be
-    inspected once the real schema is confirmed.
+    Returns (breps, warnings).
     """
-    curves = []
+    breps = []
     warnings = []
+    x_offset = 0.0
+    spacing = 50.0
     for section in design.get("sections", []):
-        sec_name = section.get("name", "section")
-        for i, tier in enumerate(section.get("tiers", [])):
-            pts = tier_to_points(tier)
-            if len(pts) < 2:
-                warnings.append("{0} tier {1}: no usable points".format(sec_name, i))
-                continue
-            curves.append(rg.PolylineCurve(pts))
-    return curves, warnings
+        for tier in section.get("tiers", []):
+            brep = tier_to_placeholder_brep(tier, x_offset, 0.0)
+            breps.append(brep)
+            x_offset += brep.GetBoundingBox(True).Diagonal.X + spacing
+    return breps, warnings
 
 
 # ── UI helpers ───────────────────────────────────────────────────────────────
@@ -548,17 +550,17 @@ class ALineSenderDialog(forms.Form):
                 token = login(email, password)
                 design = get_design(token, design_id)
                 Rhino.RhinoApp.WriteLine("Raw design JSON: " + json.dumps(design))
-                curves, warnings = design_to_curves(design)
-                msg = "Loaded {0} curve(s).".format(len(curves))
+                breps, warnings = design_to_geometry(design)
+                msg = "Loaded {0} placeholder tier(s).".format(len(breps))
                 if warnings:
-                    msg += " {0} tier(s) skipped (unrecognized shape).".format(len(warnings))
+                    msg += " {0} skipped.".format(len(warnings))
             except RuntimeError as ex:
-                curves, warnings = [], []
+                breps, warnings = [], []
                 msg = "Error: " + str(ex)
 
             def update_ui():
-                for c in curves:
-                    sc.doc.Objects.AddCurve(c)
+                for b in breps:
+                    sc.doc.Objects.AddBrep(b)
                 sc.doc.Views.Redraw()
                 self.lbl_design_status.Text = msg
                 self.btn_load_design.Enabled = True
